@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jadwal Kerja Borongan</title>
+
+  <style>
+    body {
+      background-color: #e1ecf5;
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .page-content {
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    .page-header {
+      background-color: #ffffff;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    .page-header h2 {
+      margin: 0 0 4px;
+      color: #333333;
+      font-size: 20px;
+    }
+
+    .page-header .periode-text {
+      font-size: 14px;
+      color: #555555;
+      font-weight: bold;
+    }
+
+    .search-bar {
+      margin-bottom: 14px;
+    }
+
+    .search-bar input {
+      width: 100%;
+      max-width: 360px;
+      padding: 9px 12px;
+      border: 1px solid #c7d6e5;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    .table-card {
+      background-color: #ffffff;
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    /* SCROLL INTERNAL TABEL (Header akan lengket di dalam box ini) */
+    .table-responsive {
+      overflow: auto;
+      max-height: calc(100vh - 220px); 
+      position: relative;
+      border: 1px solid #c7d6e5;
+      border-radius: 6px;
+    }
+
+    /* STICKY COLUMN FIXED LAYOUT */
+    table.jadwal-table {
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 13px;
+      white-space: nowrap;
+      table-layout: fixed; 
+      width: max-content;
+    }
+
+    table.jadwal-table th,
+    table.jadwal-table td {
+      box-sizing: border-box;
+      padding: 6px 10px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 50px; /* Lebar kolom tanggal */
+    }
+
+    table.jadwal-table thead th {
+      background-color: #e1ecf5;
+      color: #333333;
+      font-weight: bold;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      border-bottom: 1px solid #c7d6e5;
+      border-right: 1px solid #c7d6e5;
+      border-top: 1px solid #c7d6e5;
+    }
+
+    table.jadwal-table tbody td {
+      border-bottom: 1px solid #dbe4ec;
+      border-right: 1px solid #dbe4ec;
+      text-align: center;
+      background-color: inherit; 
+    }
+
+    table.jadwal-table tbody tr {
+      background-color: #ffffff;
+    }
+    table.jadwal-table tbody tr:nth-child(even) {
+      background-color: #f7fafc;
+    }
+
+    table.jadwal-table th:first-child,
+    table.jadwal-table td:first-child {
+      border-left: 1px solid #c7d6e5;
+    }
+
+    table.jadwal-table tbody td.text-left {
+      text-align: left;
+    }
+
+    /* --- SETTING KOLOM 1 s/d 4 MENEMPEL DI KIRI --- */
+    table.jadwal-table th:nth-child(1),
+    table.jadwal-table td:nth-child(1) {
+      position: sticky; left: 0; width: 40px; z-index: 2;
+    }
+    table.jadwal-table th:nth-child(2),
+    table.jadwal-table td:nth-child(2) {
+      position: sticky; left: 40px; width: 90px; z-index: 2;
+    }
+    table.jadwal-table th:nth-child(3),
+    table.jadwal-table td:nth-child(3) {
+      position: sticky; left: 130px; width: 180px; z-index: 2;
+    }
+    table.jadwal-table th:nth-child(4),
+    table.jadwal-table td:nth-child(4) {
+      position: sticky; left: 310px; width: 120px; z-index: 2;
+    }
+
+    /* Sudut Kiri Atas */
+    table.jadwal-table thead th:nth-child(1),
+    table.jadwal-table thead th:nth-child(2),
+    table.jadwal-table thead th:nth-child(3),
+    table.jadwal-table thead th:nth-child(4) {
+      z-index: 4; 
+    }
+
+    .col-minggu { background-color: #6dc1dd !important; }
+
+    .empty-row, .loading-row {
+      text-align: center;
+      color: #999999;
+      padding: 20px !important;
+      width: auto !important;
+    }
+  </style>
+</head>
+<body>
+
+  <main class="page-content">
+    <div class="page-header">
+      <h2>Jadwal Kerja Borongan</h2>
+      <div class="periode-text" id="periodeText">Periode : Memuat...</div>
+    </div>
+
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Cari No Absen / Nama / Bagian...">
+    </div>
+
+    <div class="table-card">
+      <div class="table-responsive">
+        <table class="jadwal-table">
+          <thead>
+            <tr id="tableHeaderRow">
+              <th>No</th><th>No Absen</th><th>Nama</th><th>Bagian</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr><td class="loading-row" colspan="4">Memuat data jadwal...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // ============================================================
+    // KONFIGURASI
+    // ============================================================
+    const SPREADSHEET_ID = "1_6kR2Q7r4oInjhmD4GAlLbGi5h4H7m_3amTutpYUEr4";
+    const SHEET_NAME = "Jadwal";
+
+    const BARIS_PERIODE = 0;     
+    const KOLOM_PERIODE = 4;     
+    const BARIS_DATA_MULAI = 2;  
+    const KOLOM_NO_ABSEN = 1;    
+    const KOLOM_NAMA = 2;        
+    const KOLOM_BAGIAN = 3;      
+    const KOLOM_TANGGAL_MULAI = 4; 
+
+    const NAMA_BULAN = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+    ];
+
+    const KODE_WARNA = {
+      "O":  "background-color:#ffccff;color:#ff0000;font-weight:bold;",
+      "1L": "background-color:#ffe97b;",
+      "2L": "background-color:#ffe97b;",
+      "3L": "background-color:#ffe97b;",
+      "1a": "background-color:#00ff00;",
+      "2a": "background-color:#00ff00;",
+      "3a": "background-color:#00ff00;",
+      "1b": "background-color:#ffff00;",
+      "2b": "background-color:#ffff00;",
+      "3b": "background-color:#ffff00;",
+    };
+
+    let globalDataJadwal = [];
+    let globalPeriode = null;
+
+    function serialKeTanggal(serial) {
+      const utcMs = Date.UTC(1899, 11, 30) + serial * 86400000;
+      const d = new Date(utcMs);
+      return { tahun: d.getUTCFullYear(), bulanIndex: d.getUTCMonth() };
+    }
+
+    async function fetchSeluruhSheet() {
+      const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?sheet=${encodeURIComponent(SHEET_NAME)}&tqx=out:json`;
+      const res = await fetch(url);
+      const text = await res.text();
+      const jsonText = text.replace(/^[\s\S]*?setResponse\(/, "").replace(/\);\s*$/, "");
+      return JSON.parse(jsonText);
+    }
+
+    // FUNGSI PERIODE YANG KEBAL ERROR (Membaca segala format Google)
+    function olahPeriode(sheetData) {
+      const row = sheetData.table?.rows?.[BARIS_PERIODE];
+      const cell = row?.c?.[KOLOM_PERIODE];
+      
+      const now = new Date();
+      let tahun = now.getFullYear();
+      let bulanIndex = now.getMonth();
+
+      // Jika sel benar-benar kosong, panggil fallback bulan saat ini
+      if (!cell || (cell.v == null && cell.f == null)) {
+        return { label: `Periode Aktif`, tahun, bulanIndex, jumlahHari: new Date(tahun, bulanIndex + 1, 0).getDate() };
+      }
+
+      let val = cell.v !== null ? cell.v : cell.f;
+      
+      if (typeof val === "string" && /^Date\(/.test(val)) {
+        const match = /Date\((\d+),(\d+),(\d+)\)/.exec(val);
+        tahun = parseInt(match[1], 10);
+        bulanIndex = parseInt(match[2], 10);
+      } else if (typeof val === "number" && val > 10000) {
+        const hasil = serialKeTanggal(val);
+        tahun = hasil.tahun;
+        bulanIndex = hasil.bulanIndex;
+      } else {
+        // Mode Kebal Error: Membaca teks bebas (misal: "Oktober 2026")
+        const str = String(val).toLowerCase();
+        const matchTahun = str.match(/(20\d{2})/);
+        if (matchTahun) tahun = parseInt(matchTahun[1], 10);
+
+        let found = -1;
+        for (let i = 0; i < NAMA_BULAN.length; i++) {
+          if (str.includes(NAMA_BULAN[i].toLowerCase())) { found = i; break; }
+        }
+        
+        if (found !== -1) {
+          bulanIndex = found;
+        } else {
+           const d = new Date(val);
+           if (!isNaN(d.getTime())) {
+               bulanIndex = d.getMonth();
+               tahun = d.getFullYear();
+           }
+        }
+      }
+
+      return {
+        label: `${NAMA_BULAN[bulanIndex]} ${tahun}`,
+        tahun,
+        bulanIndex,
+        jumlahHari: new Date(tahun, bulanIndex + 1, 0).getDate(),
+      };
+    }
+
+    // Mengambil data melalui jalur resmi (Tanpa Proxy) -> Cepat & Stabil
+    async function fetchSheetCSV() {
+      const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Gagal mengambil CSV dari Google.");
+      const text = await res.text();
+      return parseCSV(text);
+    }
+
+    function parseCSV(text) {
+      const rows = [];
+      let row = [];
+      let field = "";
+      let inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const next = text[i + 1];
+        if (inQuotes) {
+          if (char === '"' && next === '"') { field += '"'; i++; }
+          else if (char === '"') { inQuotes = false; }
+          else { field += char; }
+        } else {
+          if (char === '"') { inQuotes = true; }
+          else if (char === ",") { row.push(field); field = ""; }
+          else if (char === "\r") {}
+          else if (char === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+          else { field += char; }
+        }
+      }
+      if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+      return rows;
+    }
+
+    function olahDataJadwal(csvRows) {
+      const hasil = [];
+      for (let r = BARIS_DATA_MULAI; r < csvRows.length; r++) {
+        const cells = csvRows[r] || [];
+        const noAbsen = String(cells[KOLOM_NO_ABSEN] || "").trim();
+        
+        // PENTING: Jika No Absen kosong (seperti pada Trik "X" kita), lompati baris ini.
+        if (noAbsen === "") continue;
+
+        const nama = String(cells[KOLOM_NAMA] || "").trim();
+        const bagian = String(cells[KOLOM_BAGIAN] || "").trim();
+        const tanggalValues = [];
+        
+        for (let i = 0; i < 31; i++) {
+          let val = cells[KOLOM_TANGGAL_MULAI + i];
+          val = (val !== undefined && val !== null) ? String(val).trim() : "";
+          tanggalValues.push(val);
+        }
+        hasil.push({ noAbsen, nama, bagian, tanggalValues });
+      }
+      return hasil;
+    }
+
+    function isHariMinggu(tahun, bulanIndex, tanggal) {
+      return new Date(tahun, bulanIndex, tanggal).getDay() === 0;
+    }
+
+    function getNoAbsenStyle(noAbsen) {
+      if (noAbsen.includes("New")) {
+        return ' style="background-color:#ff0000;color:#ffffff;font-weight:bold;"';
+      }
+      return "";
+    }
+
+    function renderHeaderTanggal(periode) {
+      const headerRow = document.getElementById("tableHeaderRow");
+      while (headerRow.children.length > 4) {
+        headerRow.removeChild(headerRow.lastElementChild);
+      }
+      for (let hari = 1; hari <= periode.jumlahHari; hari++) {
+        const th = document.createElement("th");
+        th.textContent = hari;
+        if (isHariMinggu(periode.tahun, periode.bulanIndex, hari)) {
+          th.classList.add("col-minggu");
+        }
+        headerRow.appendChild(th);
+      }
+    }
+
+    function renderBody(dataJadwal, periode) {
+      const tbody = document.getElementById("tableBody");
+      const totalKolom = 4 + periode.jumlahHari;
+
+      if (dataJadwal.length === 0) {
+        tbody.innerHTML = `<tr><td class="empty-row" colspan="${totalKolom}">Tidak ada data yang cocok.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = dataJadwal
+        .map((row, idx) => {
+          const tanggalCells = row.tanggalValues
+            .slice(0, periode.jumlahHari)
+            .map((val, hariIdx) => {
+              const hari = hariIdx + 1;
+              const classes = [];
+              let styleAttr = "";
+
+              if (isHariMinggu(periode.tahun, periode.bulanIndex, hari)) {
+                classes.push("col-minggu");
+              }
+              if (KODE_WARNA[val]) {
+                styleAttr = ` style="${KODE_WARNA[val]}"`;
+              }
+
+              const classAttr = classes.length ? ` class="${classes.join(' ')}"` : "";
+              const tampil = val === "" ? "-" : val;
+              
+              return `<td${classAttr}${styleAttr}>${tampil}</td>`;
+            })
+            .join("");
+
+          return `
+            <tr>
+              <td>${idx + 1}</td>
+              <td class="text-left"${getNoAbsenStyle(row.noAbsen)}>${row.noAbsen}</td>
+              <td class="text-left">${row.nama}</td>
+              <td class="text-left">${row.bagian}</td>
+              ${tanggalCells}
+            </tr>
+          `;
+        })
+        .join("");
+    }
+
+    function terapkanFilterDanRender() {
+      const keyword = document.getElementById("searchInput").value.trim().toLowerCase();
+      const dataTersaring = !keyword
+        ? globalDataJadwal
+        : globalDataJadwal.filter((row) =>
+            row.noAbsen.toLowerCase().includes(keyword) ||
+            row.nama.toLowerCase().includes(keyword) ||
+            row.bagian.toLowerCase().includes(keyword)
+          );
+      renderBody(dataTersaring, globalPeriode);
+    }
+
+    document.getElementById("searchInput").addEventListener("input", terapkanFilterDanRender);
+
+    (async () => {
+      try {
+        const sheetDataJson = await fetchSeluruhSheet();
+        globalPeriode = olahPeriode(sheetDataJson);
+        document.getElementById("periodeText").textContent = `Periode : ${globalPeriode.label}`;
+        renderHeaderTanggal(globalPeriode);
+
+        const csvRows = await fetchSheetCSV();
+        globalDataJadwal = olahDataJadwal(csvRows);
+        renderBody(globalDataJadwal, globalPeriode);
+      } catch (err) {
+        console.error("Gagal memuat jadwal:", err);
+        document.getElementById("periodeText").textContent = "Periode : Gagal dimuat";
+        document.getElementById("tableBody").innerHTML =
+          `<tr><td class="empty-row" colspan="4">Gagal memuat data: ${err.message}</td></tr>`;
+      }
+    })();
+  </script>
+
+</body>
+</html>
